@@ -1,0 +1,23 @@
+version: '3'
+
+networks:
+  mynetwork:
+
+services:
+  logstash:
+    build:
+      context: .
+      dockerfile: logstash/Dockerfile
+    ports:
+      - '3001:3001'
+    networks:
+      - mynetwork
+
+  python_server:
+    build:
+      context: .
+      dockerfile: python/Dockerfile
+    depends_on:
+      - logstash
+    networks:
+      - mynetwork
