@@ -21,7 +21,7 @@ handler = logstash_async.handler.AsynchronousLogstashHandler(
 logger.addHandler(handler)
 
 start_date = arrow.Arrow(year=2020, month=2, day=24)
-test_date = arrow.utcnow().shift(weeks=-1)
+test_date = arrow.utcnow().shift(weeks=-2)
 end_date = (
     arrow.utcnow().shift(weekday=4, weeks=-1)
     if arrow.utcnow().weekday() >= 4
