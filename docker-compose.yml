@@ -21,3 +21,34 @@ services:
       - logstash
     networks:
       - mynetwork
+
+  kafka-server:
+    build:
+      context: .
+      dockerfile: kafka/Dockerfile.server
+    ports:
+      - 9092:9092
+    networks:
+      - mynetwork
+
+
+  kafka-topic:
+    build:
+      context: .
+      dockerfile: kafka/Dockerfile.topics
+    networks:
+      - mynetwork
+    depends_on:
+      - kafka-server
+
+
+  kafka-ui:
+    build:
+      context: .
+      dockerfile: kafka/Dockerfile.ui
+    ports:
+      - 8080:8080
+    networks: 
+      - tap
+    depends_on:
+      - kafka-server
