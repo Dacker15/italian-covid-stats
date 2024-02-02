@@ -5,13 +5,17 @@ ENV KAFKA_DIR "/opt/kafka"
 
 ARG KAFKA_VERSION="2.13-3.6.1"
 
-RUN wget https://dlcdn.apache.org/kafka/3.6.1/kafka_${KAFKA_VERSION}}.tgz -P /opt
+RUN yum install wget tar gzip -y
 
-RUN ln -s /opt/kafka_${KAFKA_VERSION} ${KAFKA_DIR} 
+RUN wget https://dlcdn.apache.org/kafka/3.6.1/kafka_${KAFKA_VERSION}.tgz -P /opt
 
-ADD kafka-manager.sh ${KAFKA_DIR}/bin/kafka-manager
+RUN tar -xvzf /opt/kafka_${KAFKA_VERSION}.tgz -C /opt
 
-ADD conf/kraft/* ${KAFKA_DIR}/config/kraft/
+RUN mv /opt/kafka_${KAFKA_VERSION} ${KAFKA_DIR}
+
+ADD kafka/kafka-manager.sh ${KAFKA_DIR}/bin/kafka-manager
+
+ADD kafka/conf/kraft/* ${KAFKA_DIR}/config/kraft/
 
 ENV KAFKA_ACTION=start-kafka
 ENV KAFKA_CONFIG=kraft

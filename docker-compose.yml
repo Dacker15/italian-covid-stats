@@ -31,7 +31,6 @@ services:
     networks:
       - mynetwork
 
-
   kafka-topic:
     build:
       context: .
@@ -41,14 +40,13 @@ services:
     depends_on:
       - kafka-server
 
-
   kafka-ui:
     build:
       context: .
       dockerfile: kafka/Dockerfile.ui
     ports:
       - 8080:8080
-    networks: 
-      - tap
+    networks:
+      - mynetwork
     depends_on:
       - kafka-server
