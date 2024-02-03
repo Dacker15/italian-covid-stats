@@ -12,6 +12,11 @@ services:
       - '3001:3001'
     networks:
       - mynetwork
+    depends_on:
+      kafka-topic:
+        condition: service_completed_successfully
+      spark:
+        condition: service_healthy
 
   python_server:
     build:
@@ -50,3 +55,26 @@ services:
       - mynetwork
     depends_on:
       - kafka-server
+
+  spark:
+    build:
+      context: .
+      dockerfile: spark/Dockerfile
+    ports:
+      - 4040:4040
+    networks:
+      - mynetwork
+    depends_on:
+      kafka-topic:
+        condition: service_completed_successfully
+      elasticsearch:
+        condition: service_healthy
+
+  elasticsearch:
+    build:
+      context: .
+      dockerfile: elasticsearch/Dockerfile
+    ports:
+      - 9200:9200
+    networks:
+      - mynetwork

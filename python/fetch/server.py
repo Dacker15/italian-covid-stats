@@ -40,7 +40,6 @@ while actual_date <= end_date:
 
     if response.status_code == 200:
         logger.info(response.text)
-        print("Response for", year, month, day, response.text, "\n")
     else:
         print("Error for", year, month, day, "Skipping", "\n")
 
