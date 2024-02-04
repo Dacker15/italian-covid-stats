@@ -9,7 +9,9 @@ def start():
     elastic_instance = get_elastic_index()
     kafka_input_df = get_kafka_instance(instance)
     print("Spark started. Kafka input ready.")
-    kafka_input_df.writeStream.foreachBatch(process_batch).start().awaitTermination()
+    kafka_input_df.writeStream.foreachBatch(
+        lambda batch, id: process_batch(batch, id, instance)
+    ).start().awaitTermination()
     instance.stop()
 
 

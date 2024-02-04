@@ -64,6 +64,8 @@ services:
       - 4040:4040
     networks:
       - mynetwork
+    volumes:
+      - $PWD/spark/models/:/opt/models
     depends_on:
       kafka-topic:
         condition: service_completed_successfully
