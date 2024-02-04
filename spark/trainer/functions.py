@@ -41,7 +41,7 @@ def get_kafka_instance(spark_instance: SparkSession):
     kafka_host = os.getenv("KAFKA_HOST")
     kafka_port = os.getenv("KAFKA_PORT")
     kafka_topic = os.getenv("KAFKA_TOPIC")
-    kafka_instance = f"{kafka_host}:{kafka_port}"
+    kafka_instance = f"http://{kafka_host}:{kafka_port}"
     return (
         spark_instance.readStream.format("kafka")
         .option("kafka.bootstrap.servers", kafka_instance)
@@ -50,6 +50,13 @@ def get_kafka_instance(spark_instance: SparkSession):
     )
 
 
-def raw_data_to_dataframe(raw_data: DataFrame):
-    raw_df = raw_data.select("message")
-    print("Raw Dataframe", raw_df, raw_df.head(5))
+def process_batch(raw_data: DataFrame, data_batch_id: int):
+    print("Processing batch", data_batch_id)
+
+    if raw_data.isEmpty():
+        print("No data to process")
+        return
+
+    raw_JSON = raw_data.toJSON()
+    raw_value = raw_JSON.first()
+    print("Raw Dataframe", raw_value)

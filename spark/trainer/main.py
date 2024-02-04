@@ -7,9 +7,10 @@ def start():
     print("Starting the Spark Application")
     context, instance = get_spark_instance()
     elastic_instance = get_elastic_index()
-    kafka_input = get_kafka_instance(instance)
+    kafka_input_df = get_kafka_instance(instance)
     print("Spark started. Kafka input ready.")
-    raw_data_to_dataframe(kafka_input)
+    kafka_input_df.writeStream.foreachBatch(process_batch).start().awaitTermination()
+    instance.stop()
 
 
 start()

@@ -31,4 +31,6 @@ HEALTHCHECK --interval=10s --timeout=10s --retries=20 CMD [ "curl", "-f", "http:
 
 COPY spark/trainer /opt/trainer
 
+WORKDIR /
+
 CMD [ "spark-submit", "--packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,org.elasticsearch:elasticsearch-spark-30_2.12:8.12.0", "/opt/trainer/main.py" ]
