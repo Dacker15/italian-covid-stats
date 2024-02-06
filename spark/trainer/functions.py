@@ -3,6 +3,7 @@ import json
 import os
 import pandas as pd
 
+from dateutil.parser import parse
 from pyspark import SparkContext
 from elasticsearch import Elasticsearch
 from pyspark.ml.feature import VectorAssembler
@@ -10,7 +11,7 @@ from pyspark.ml.regression import LinearRegressionModel, LinearRegression
 from pyspark.sql.dataframe import DataFrame
 from pyspark.sql.session import SparkSession
 
-from mapping import ELASTICSEARCH_BODY
+from mapping import ELASTICSEARCH_BODY, SPARK_DATA_MAPPING
 
 app_name = "ItalianCovidStats"
 key_map = {
@@ -109,8 +110,28 @@ def evaluate_regressor(
     print("Predicted value for", regressor_type, "is", prediction)
 
 
+def get_prev_data(elastic_instance: Elasticsearch, region_code: str, timestamp: int):
+    query = {
+        "query": {
+            "bool": {
+                "must": [
+                    {"match": {"region": region_code}},
+                    {"range": {"timestamp": {"lt": timestamp}}},
+                ]
+            }
+        }
+    }
+    response = elastic_instance.search(
+        index=os.getenv("ELASTICSEARCH_INDEX"), body=query
+    )
+    return [hit["_source"] for hit in response["hits"]["hits"]]
+
+
 def process_batch(
-    raw_data: DataFrame, data_batch_id: int, spark_instance: SparkSession
+    raw_data: DataFrame,
+    data_batch_id: int,
+    spark_instance: SparkSession,
+    elastic_instance: Elasticsearch,
 ):
     print("Processing batch", data_batch_id)
 
@@ -125,11 +146,71 @@ def process_batch(
     csv_raw_value = io.StringIO(json_value["message"])
     csv_value = pd.read_csv(csv_raw_value, sep=",")
 
+    # Create empty output data frame
+    output_df = spark_instance.createDataFrame([], SPARK_DATA_MAPPING)
+
     for _, row in csv_value.iterrows():
+        # Get day date and convert it to timestamp
+        date = row["data"]
+        parsed_date = parse(date)
+        parsed_date = parsed_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        formatted_date = f"{parsed_date.year}-{str(parsed_date.month).ljust(2, '0')}-{str(parsed_date.day).ljust(2, '0')}"
+        timestamp = int(parsed_date.timestamp())
+
+        # Get region code
+        region_code = row["codice_regione"]
+
+        # Get previous data
+        prev_data = get_prev_data(elastic_instance, region_code, timestamp)
+        print("Previous data", prev_data)
+
         for regressor_type in key_map.keys():
-            regressor = get_regressor(row["codice_regione"], regressor_type)
+            # Get dependent variable for regression
+            y_value = row[key_map[regressor_type]]
+
+            # assembler = VectorAssembler(inputCols=["timestamp"], outputCol="features")
+            # assembled_df = assembler.transform(temp_df).select("features", "valore_x")
+
+            # regressor = regressor.transform(assembled_df)
+
+            print(
+                "Training regressor for",
+                regressor_type,
+                y_value,
+                parsed_date.day,
+                parsed_date.month,
+                parsed_date.year,
+                timestamp,
+            )
             # Next line is commented out because it's not working
             # next_regressor = train_single_regressor(row, regressor_type, spark_instance)
             # store_regressor(next_regressor, row["codice_regione"], regressor_type)
 
             # evaluate_regressor(row, next_regressor, regressor_type, spark_instance)
+
+        # Create region output data frame
+        region_output_df = spark_instance.createDataFrame(
+            [
+                (
+                    formatted_date,
+                    timestamp,
+                    region_code,
+                    row["isolamento_domiciliare"],
+                    row["ricoverati_con_sintomi"],
+                    row["terapia_intensiva"],
+                )
+            ],
+            SPARK_DATA_MAPPING,
+        )
+
+        # Append region output data frame to the global output data frame
+        output_df = output_df.union(region_output_df)
+
+    # Write to ElasticSearch
+    output_df.write.format("org.elasticsearch.spark.sql").option(
+        "es.resource", os.getenv("ELASTICSEARCH_INDEX")
+    ).option("es.nodes", os.getenv("ELASTICSEARCH_HOST")).option(
+        "es.port", os.getenv("ELASTICSEARCH_PORT")
+    ).mode(
+        "append"
+    ).save()

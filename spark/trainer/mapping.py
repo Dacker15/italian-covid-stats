@@ -1,7 +1,11 @@
+from pyspark.sql import types as tp
+
+
 ELASTICSEARCH_BODY = {
     "mappings": {
         "properties": {
             "date": {"type": "date", "format": "yyyy-MM-dd"},
+            "timestamp": {"type": "integer"},
             "region": {"type": "keyword"},
             "home_isolation": {"type": "integer"},
             "hospitalized": {"type": "integer"},
@@ -9,3 +13,15 @@ ELASTICSEARCH_BODY = {
         },
     },
 }
+
+
+SPARK_DATA_MAPPING = tp.StructType(
+    [
+        tp.StructField("date", tp.StringType(), nullable=False),
+        tp.StructField("timestamp", tp.IntegerType(), nullable=False),
+        tp.StructField("region", tp.StringType(), nullable=False),
+        tp.StructField("home_isolation", tp.IntegerType(), nullable=False),
+        tp.StructField("hospitalized", tp.IntegerType(), nullable=False),
+        tp.StructField("intensive_care", tp.IntegerType(), nullable=False),
+    ]
+)
