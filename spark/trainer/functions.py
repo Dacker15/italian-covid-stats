@@ -60,56 +60,6 @@ def get_kafka_instance(spark_instance: SparkSession):
     )
 
 
-def get_regressor(region_code: str, regressor_type: str):
-    try:
-        return LinearRegressionModel.load(
-            f"{os.getenv('MODEL_PATH')}/{region_code}_{regressor_type}"
-        )
-    except:
-        print("No model found for", region_code, regressor_type, "Creating a new one")
-        return LinearRegressionModel()
-
-
-def store_regressor(
-    regressor: LinearRegressionModel, region_code: str, regressor_type: str
-):
-    regressor.write().overwrite().save(
-        f"{os.getenv('MODEL_PATH')}/{region_code}_{regressor_type}"
-    )
-
-
-def train_single_regressor(
-    data_frame: pd.DataFrame, regressor_type: str, instance: SparkSession
-) -> LinearRegressionModel:
-    spark_df = instance.createDataFrame(data_frame)
-    map_x = VectorAssembler(inputCols=[key_map[regressor_type]], outputCol="features")
-    train_df = map_x.transform(spark_df)
-    regression = LinearRegression(
-        featuresCol="features",
-        labelCol=f"{key_map[regressor_type]}_predicted",
-        maxIter=10,
-        regParam=0.3,
-    )
-
-    return regression.fit(train_df)
-
-
-def evaluate_regressor(
-    data_frame: pd.DataFrame,
-    regressor: LinearRegressionModel,
-    regressor_type: str,
-    instance: SparkSession,
-) -> LinearRegressionModel:
-    spark_df = instance.createDataFrame(data_frame)
-    map_x = VectorAssembler(inputCols=[key_map[regressor_type]], outputCol="features")
-    train_df = map_x.transform(spark_df)
-    prediction = regressor.transform(train_df)
-    prediction.show()
-    prediction = prediction.toPandas()
-    print(prediction)
-    print("Predicted value for", regressor_type, "is", prediction)
-
-
 def get_prev_data(elastic_instance: Elasticsearch, region_code: str, timestamp: int):
     query = {
         "query": {
@@ -168,25 +118,29 @@ def process_batch(
             # Get dependent variable for regression
             y_value = row[key_map[regressor_type]]
 
-            # assembler = VectorAssembler(inputCols=["timestamp"], outputCol="features")
-            # assembled_df = assembler.transform(temp_df).select("features", "valore_x")
+            # TODO: Regression: use prev data only and use it to predict today value
 
-            # regressor = regressor.transform(assembled_df)
-
-            print(
-                "Training regressor for",
-                regressor_type,
-                y_value,
-                parsed_date.day,
-                parsed_date.month,
-                parsed_date.year,
-                timestamp,
+            # Define regression data frame
+            regression_data = [
+                (prev["timestamp"], prev[regressor_type]) for prev in prev_data
+            ]
+            regression_data.append((timestamp, y_value))
+            regression_df = spark_instance.createDataFrame(
+                regression_data, ["timestamp", "sick"]
             )
-            # Next line is commented out because it's not working
-            # next_regressor = train_single_regressor(row, regressor_type, spark_instance)
-            # store_regressor(next_regressor, row["codice_regione"], regressor_type)
 
-            # evaluate_regressor(row, next_regressor, regressor_type, spark_instance)
+            # Train regressor
+            assembler = VectorAssembler(inputCols=["timestamp"], outputCol="features")
+            regression_df = assembler.transform(regression_df)
+            lr = LinearRegression(featuresCol="features", labelCol="sick")
+            model: LinearRegressionModel = lr.fit(regression_df)
+
+            test_df = spark_instance.createDataFrame(
+                [(timestamp, y_value)], ["timestamp", "sick"]
+            )
+            test_df = assembler.transform(test_df)
+            prediction: float = model.transform(test_df).collect()[0]["prediction"]
+            print(f"Prediction for {regressor_type} is {prediction} and {y_value}")
 
         # Create region output data frame
         region_output_df = spark_instance.createDataFrame(
