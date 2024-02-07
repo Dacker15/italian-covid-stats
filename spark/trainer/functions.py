@@ -133,6 +133,7 @@ def process_batch(
 
         # Get region code
         region_code = row["codice_regione"]
+        region_name = row["denominazione_regione"]
 
         # Get previous data
         prev_data = get_prev_data(elastic_instance, region_code, timestamp)
@@ -146,6 +147,7 @@ def process_batch(
             regression_data = [
                 (prev["timestamp"], prev[regressor_type]) for prev in prev_data
             ]
+            regression_data.append((timestamp, y_value))
 
             # Train regressor
             prediction = get_prediction(
@@ -166,6 +168,7 @@ def process_batch(
                     formatted_date,
                     timestamp,
                     region_code,
+                    region_name,
                     row["isolamento_domiciliare"],
                     row["ricoverati_con_sintomi"],
                     row["terapia_intensiva"],
