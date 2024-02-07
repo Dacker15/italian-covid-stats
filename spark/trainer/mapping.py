@@ -23,5 +23,8 @@ SPARK_DATA_MAPPING = tp.StructType(
         tp.StructField("home_isolation", tp.IntegerType(), nullable=False),
         tp.StructField("hospitalized", tp.IntegerType(), nullable=False),
         tp.StructField("intensive_care", tp.IntegerType(), nullable=False),
+        tp.StructField("predicted_home_isolation", tp.IntegerType(), nullable=True),
+        tp.StructField("predicted_hospitalized", tp.IntegerType(), nullable=True),
+        tp.StructField("predicted_intensive_care", tp.IntegerType(), nullable=True),
     ]
 )

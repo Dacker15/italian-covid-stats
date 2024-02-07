@@ -77,6 +77,30 @@ def get_prev_data(elastic_instance: Elasticsearch, region_code: str, timestamp: 
     return [hit["_source"] for hit in response["hits"]["hits"]]
 
 
+def get_prediction(
+    regression_data: list[tuple[int, int]],
+    timestamp: int,
+    y_value: float,
+    spark_instance: SparkSession,
+) -> float or None:
+    if len(regression_data) == 0:
+        return None
+
+    regression_df = spark_instance.createDataFrame(
+        regression_data, ["timestamp", "sick"]
+    )
+    assembler = VectorAssembler(inputCols=["timestamp"], outputCol="features")
+    regression_df = assembler.transform(regression_df)
+    lr = LinearRegression(featuresCol="features", labelCol="sick")
+    model: LinearRegressionModel = lr.fit(regression_df)
+
+    test_df = spark_instance.createDataFrame(
+        [(timestamp, y_value)], ["timestamp", "sick"]
+    )
+    test_df = assembler.transform(test_df)
+    return model.transform(test_df).collect()[0]["prediction"]
+
+
 def process_batch(
     raw_data: DataFrame,
     data_batch_id: int,
@@ -112,33 +136,25 @@ def process_batch(
 
         # Get previous data
         prev_data = get_prev_data(elastic_instance, region_code, timestamp)
+        predictions: dict[str, int or None] = dict.fromkeys(key_map.keys(), None)
 
         for regressor_type in key_map.keys():
             # Get dependent variable for regression
             y_value = row[key_map[regressor_type]]
 
-            # TODO: Regression: use prev data only and use it to predict today value
-
             # Define regression data frame
             regression_data = [
                 (prev["timestamp"], prev[regressor_type]) for prev in prev_data
             ]
-            regression_data.append((timestamp, y_value))
-            regression_df = spark_instance.createDataFrame(
-                regression_data, ["timestamp", "sick"]
-            )
 
             # Train regressor
-            assembler = VectorAssembler(inputCols=["timestamp"], outputCol="features")
-            regression_df = assembler.transform(regression_df)
-            lr = LinearRegression(featuresCol="features", labelCol="sick")
-            model: LinearRegressionModel = lr.fit(regression_df)
-
-            test_df = spark_instance.createDataFrame(
-                [(timestamp, y_value)], ["timestamp", "sick"]
+            prediction = get_prediction(
+                regression_data, timestamp, y_value, spark_instance
             )
-            test_df = assembler.transform(test_df)
-            prediction: float = model.transform(test_df).collect()[0]["prediction"]
+            predictions[regressor_type] = (
+                int(prediction) if prediction is not None else None
+            )
+
             print(
                 f"Prediction: Day {formatted_date} Region {region_code} - {regressor_type} = {y_value} -> {prediction} with data {regression_data}"
             )
@@ -153,6 +169,9 @@ def process_batch(
                     row["isolamento_domiciliare"],
                     row["ricoverati_con_sintomi"],
                     row["terapia_intensiva"],
+                    predictions["home_isolation"],
+                    predictions["hospitalized"],
+                    predictions["intensive_care"],
                 )
             ],
             SPARK_DATA_MAPPING,
