@@ -112,7 +112,6 @@ def process_batch(
 
         # Get previous data
         prev_data = get_prev_data(elastic_instance, region_code, timestamp)
-        print("Previous data", prev_data)
 
         for regressor_type in key_map.keys():
             # Get dependent variable for regression
@@ -140,7 +139,9 @@ def process_batch(
             )
             test_df = assembler.transform(test_df)
             prediction: float = model.transform(test_df).collect()[0]["prediction"]
-            print(f"Prediction for {regressor_type} is {prediction} and {y_value}")
+            print(
+                f"Prediction: Day {formatted_date} Region {region_code} - {regressor_type} = {y_value} -> {prediction} with data {regression_data}"
+            )
 
         # Create region output data frame
         region_output_df = spark_instance.createDataFrame(
