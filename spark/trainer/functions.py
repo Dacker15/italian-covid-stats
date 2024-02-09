@@ -128,15 +128,16 @@ def process_batch(
         date = row["data"]
         parsed_date = parse(date)
         parsed_date = parsed_date.replace(hour=0, minute=0, second=0, microsecond=0)
-        formatted_date = f"{parsed_date.year}-{str(parsed_date.month).ljust(2, '0')}-{str(parsed_date.day).ljust(2, '0')}"
+        formatted_date = f"{parsed_date.year}-{str(parsed_date.month).rjust(2, '0')}-{str(parsed_date.day).rjust(2, '0')}"
         timestamp = int(parsed_date.timestamp())
 
         # Get region code
         region_code = row["codice_regione"]
+        formatted_region_code = str(region_code).rjust(2, "0")
         region_name = row["denominazione_regione"]
 
         # Get previous data
-        prev_data = get_prev_data(elastic_instance, region_code, timestamp)
+        prev_data = get_prev_data(elastic_instance, formatted_region_code, timestamp)
         predictions: dict[str, int or None] = dict.fromkeys(key_map.keys(), None)
 
         for regressor_type in key_map.keys():
@@ -167,7 +168,7 @@ def process_batch(
                 (
                     formatted_date,
                     timestamp,
-                    region_code,
+                    formatted_region_code,
                     region_name,
                     row["isolamento_domiciliare"],
                     row["ricoverati_con_sintomi"],
