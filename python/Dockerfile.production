@@ -1,0 +1,9 @@
+FROM python:3.9-bookworm
+
+RUN pip install requests flask flask-cors
+
+COPY python/production/ /
+
+EXPOSE 3000
+
+CMD [ "python", "./server.py" ]

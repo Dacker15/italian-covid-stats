@@ -18,6 +18,18 @@ services:
       spark:
         condition: service_healthy
 
+  # logstash:
+  #   build:
+  #     context: .
+  #     dockerfile: logstash/Dockerfile.production
+  #   networks:
+  #     - mynetwork
+  #   depends_on:
+  #     kafka-topic:
+  #       condition: service_completed_successfully
+  #     spark:
+  #       condition: service_healthy
+
   python_server:
     build:
       context: .
@@ -26,6 +38,15 @@ services:
       - logstash
     networks:
       - mynetwork
+
+  # python_server:
+  #   build:
+  #     context: .
+  #     dockerfile: python/Dockerfile.production
+  #   ports:
+  #     - '3000:3000'
+  #   networks:
+  #     - mynetwork
 
   kafka-server:
     build:
