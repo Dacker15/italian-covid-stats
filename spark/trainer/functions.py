@@ -156,6 +156,7 @@ def process_batch(
             prediction = get_prediction(
                 regression_data, timestamp, y_value, spark_instance
             )
+            prediction = max(0, prediction)
             predictions[regressor_type] = (
                 int(prediction) if prediction is not None else None
             )
