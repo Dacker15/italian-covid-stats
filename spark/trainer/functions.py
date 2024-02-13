@@ -69,7 +69,9 @@ def get_prev_data(elastic_instance: Elasticsearch, region_code: str, timestamp: 
                     {"range": {"timestamp": {"lt": timestamp}}},
                 ]
             }
-        }
+        },
+        "sort": [{"timestamp": {"order": "desc"}}],
+        "size": 14,
     }
     response = elastic_instance.search(
         index=os.getenv("ELASTICSEARCH_INDEX"), body=query
